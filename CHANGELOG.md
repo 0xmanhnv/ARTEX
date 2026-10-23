@@ -4,9 +4,39 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-23
+
+First release of this fork. The engine underneath is still upstream's, but this tree carries a long stretch of operational work on top of it: a recon toolbox and skills, findings discipline, cost accounting, and container packaging.
+
+### Added
+
+- **Recon toolbox in the image**: pinned nuclei, httpx, subfinder, katana, ffuf, dalfox and a sqlmap checkout, verified at build time, so hunt workers can call them directly (#112).
+- **Recursive recon skill** (`bbot-recon`): bbot v3.0.2 in its own virtualenv with module dependencies preinstalled. Policy-gated modes (passive seeds-only when scanners are banned, active-safe, loud only on explicit permission) and JSONL ingestion into the facts graph (#118).
+- **php2shell skill**: turns a file-inclusion finding into verified RCE through the session.upload_progress chain, lab first and gated on program policy (#113).
+- **Code audit and reverse-engineering skills** (#55, #77).
+- **Goal ambiguity gate**: task creation rejects goals that name no target and goals under 80 characters; `[targetless]` opts out for tasks that legitimately have none (#111).
+- **LLM chain hardening**: consecutive-failure escalation across the ordered profile chain, plus per-intent profile rotation with a strict round-robin (`llm_rotate`) (#111, #114).
+- **Stagnation warning**: the graph overview tells a worker when it has repeated the same direction without producing findings (#111).
+- **Per-task credentials vault**: accounts stored per task, agent-generated passwords allowed, injected into the worker context and managed from the task page.
+- **Cost ledger**: token spend metered per call, with usage surfaced in the UI and judge/fallback calls counted separately (#71, #74).
+- **Backup script and MCP health reporting** (#43, #44).
+- **Ask-operator tool with environment handoff** (#45, #57).
+- **DrostBench corpus and benchmark harness** (#59, #95, #96, #97, #98).
+- **One database per test package**, removing cross-package test races (#82).
+
+### Changed
+
+- **Norma upgraded to v0.4.4**: per-task process-tree memory watchdog, UTF-8 aligned output truncation, non-interactive subprocess environments, message_delta usage recovery, and streaming fixes (#121).
+- **Planner quiet mode** for less narration during long runs (#81, #88).
+- **Findings discipline**: proof-basis gates, measured impact, adversarial verification and dedup rules decide what a finding must contain before it is reported (#51, #53, #63, #69).
+- **Prompt-injection hardening** on seed material and MCP tool descriptions (#49).
+- **Pause preserves the task timeout budget**, and paused time is frozen in the task clock (#2, #65, #110).
+- **Task detail metrics and outcome cards** summarise a finished run (#92, #102).
+- **Skill-gap, loop-contract and shadow-lesson reporting** for the planner (#104, #106, #108).
+
 ### Removed
 
-- **In-app self-update and the automatic version check**: removed the `selfupdate` package, the `/api/update/*` endpoints, the top-bar update badge, and the "Version & Updates" settings card. The update source was hard-coded to a repository that no longer exists, and its checksums were unsigned. `start.sh` / `start.bat` now only restart the process after a crash. Use `update.sh` or the release archives to upgrade.
+- **In-app self-update and the automatic version check**: the update source was hard-coded to a repository that no longer exists, and its checksums came from the same release. The `selfupdate` package, the `/api/update/*` endpoints, the top-bar update badge and the "Version & Updates" settings card are gone; `start.sh` / `start.bat` now only restart the process after a crash. Upgrade with `update.sh` or a release archive. (#125, contributed by @stevenAthompson)
 
 ## [0.3.15] - 2026-10-07
 
@@ -890,7 +920,8 @@ All notable changes to this project are documented in this file. The format is b
 - [@Autumn-27](https://github.com/Autumn-27)
 - [@neouks](https://github.com/neouks)
 
-[Unreleased]: https://github.com/Autumn-27/ARTEX/compare/v0.3.10...HEAD
+[Unreleased]: https://github.com/BaaRai/ARTEX/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/BaaRai/ARTEX/compare/v0.3.15...v0.4.0
 [0.3.10]: https://github.com/Autumn-27/ARTEX/compare/v0.3.9...v0.3.10
 [0.3.9]: https://github.com/Autumn-27/ARTEX/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/Autumn-27/ARTEX/compare/v0.3.7...v0.3.8
