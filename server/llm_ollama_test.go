@@ -44,6 +44,12 @@ func TestOllamaConfigFromKeylessDefaults(t *testing.T) {
 	if k.APIKey != "ollama-secret" {
 		t.Fatalf("custom key lost: %q", k.APIKey)
 	}
+	// The natural Ollama URL has no /v1, but the provider appends
+	// /chat/completions, so the base must be normalized to the /v1 root.
+	n := agent.ConfigFrom("ollama", "m", "http://box:11434", "", "")
+	if n.BaseURL != "http://box:11434/v1" {
+		t.Fatalf("bare host URL not normalized: %q", n.BaseURL)
+	}
 }
 
 // The provider built from an Ollama config speaks OpenAI Chat Completions on
@@ -79,8 +85,11 @@ func TestOllamaProviderWiresOpenAIProtocol(t *testing.T) {
 	if _, _, _, err = prov.Complete(ctx, req); err != nil {
 		t.Fatalf("Complete: %v", err)
 	}
-	if p, _ := gotPath.Load().(string); p != "/chat/completions" {
-		t.Fatalf("path=%q, want /chat/completions (base URL must NOT be the OpenAI fallback)", p)
+	// ConfigFrom normalizes the fake server URL (no /v1) onto the OpenAI root,
+	// so the request must land on /v1/chat/completions. A path of /chat/completions
+	// would mean the base URL leaked through unnormalized (or fell back to OpenAI).
+	if p, _ := gotPath.Load().(string); p != "/v1/chat/completions" {
+		t.Fatalf("path=%q, want /v1/chat/completions", p)
 	}
 	if a, _ := gotAuth.Load().(string); a != "Bearer ollama" {
 		t.Fatalf("Authorization=%q, want placeholder Bearer ollama", a)
@@ -219,5 +228,21 @@ func TestOllamaListModels(t *testing.T) {
 	}
 	if paths, _ := calls.Load().([]string); len(paths) != 2 || paths[0] != "/v1/models" || paths[1] != "/v1/models" {
 		t.Fatalf("both calls must hit /v1/models, got %v", paths)
+	}
+}
+
+// An Ollama config resolved from the environment must not inherit OPENAI_API_KEY:
+// Ollama ignores the bearer token, so inheritance would only ship the cloud key
+// to the local or LAN endpoint.
+func TestOllamaFromEnvDoesNotInheritOpenAIKey(t *testing.T) {
+	t.Setenv("ARTEX_LLM_PROVIDER", "ollama")
+	t.Setenv("OPENAI_API_KEY", "sk-cloud-secret")
+	t.Setenv("ARTEX_LLM_BASE_URL", "")
+	c, ok := agent.FromEnv()
+	if !ok {
+		t.Fatal("ollama env config must be usable without a key")
+	}
+	if c.APIKey != "" {
+		t.Fatalf("ollama inherited a cloud key: %q", c.APIKey)
 	}
 }

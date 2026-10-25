@@ -2104,7 +2104,7 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 		// without the /v1 suffix (and a full endpoint URL). No auth needed; when a
 		// key was provided anyway, send it as Bearer (Ollama ignores it).
 		if baseURL == "" {
-			baseURL = "http://127.0.0.1:11434/v1"
+			baseURL = agent.DefaultOllamaBaseURL
 		}
 		b := strings.TrimSuffix(baseURL, "/chat/completions")
 		if !strings.HasSuffix(b, "/v1") {

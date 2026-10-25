@@ -224,7 +224,10 @@ func FromEnv() (Config, bool) {
 		}
 	case "ollama":
 		c.Format = FormatOllama
-		c.APIKey = oaiKey // optional; a local Ollama server is usable keyless
+		// Deliberately NOT inheriting OPENAI_API_KEY: Ollama ignores the bearer
+		// token, so the only thing the inheritance could do is ship a real cloud
+		// key to the local (or LAN) endpoint. An authenticated Ollama gateway can
+		// still be configured as a saved profile with an explicit key.
 		if c.BaseURL == "" {
 			c.BaseURL = DefaultOllamaBaseURL
 		}
@@ -275,12 +278,15 @@ func ConfigFrom(provider, model, baseURL, apiKey, proxy string) Config {
 	case "ollama":
 		c.Format = FormatOllama
 		// Ollama's OpenAI-compatible endpoint lives at /v1 and the provider
-		// appends "/chat/completions"; tolerate a full endpoint URL. Never leave
-		// it empty: an empty BaseURL would let the SDK fall back to OpenAI's
-		// public endpoint with this profile's request.
-		c.BaseURL = strings.TrimRight(strings.TrimSuffix(c.BaseURL, "/chat/completions"), "/")
+		// appends "/chat/completions"; tolerate a full endpoint URL and the
+		// natural Ollama URL without the /v1 suffix. Never leave it empty: an
+		// empty BaseURL would let the SDK fall back to OpenAI's public endpoint
+		// with this profile's request.
+		c.BaseURL = strings.TrimRight(strings.TrimSuffix(strings.TrimSpace(c.BaseURL), "/chat/completions"), "/")
 		if c.BaseURL == "" {
 			c.BaseURL = DefaultOllamaBaseURL
+		} else if !strings.HasSuffix(c.BaseURL, "/v1") {
+			c.BaseURL += "/v1"
 		}
 		if c.Model == "" {
 			c.Model = "llama3.2"
