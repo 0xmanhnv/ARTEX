@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+#
+# Builds the ARTEX single binary (with embedded frontend) entirely inside Docker,
+# so the build host needs no Go/Node toolchain. The result is exported to
+# dist/<arch>/artex, which the main Dockerfile then copies into the runtime image.
+#
+# Usage (see build-image.sh for the full two-step flow):
+#   docker build -f Dockerfile.binbuild --target export \
+#     --output type=local,dest=dist/amd64 .
+#   docker build --build-arg TARGETARCH=amd64 -t ghcr.io/0xmanhnv/artex:latest .
+
+# 1) Frontend static export (matches CI: node 22, npm ci, build:static)
+FROM node:22-bookworm AS web
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build:static
+
+# 2) Go build with embedded frontend (-tags embedui)
+FROM golang:1.26-bookworm AS go
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# server/webui/dist is .dockerignore'd from context; inject the freshly built export
+COPY --from=web /src/web/out ./server/webui/dist
+RUN CGO_ENABLED=0 go build -tags embedui -trimpath \
+      -ldflags "-s -w -buildid= -X main.version=docker-local" \
+      -o /out/artex ./cmd/artex
+
+# 3) Export-only stage: `--output type=local` writes /artex to the host
+FROM scratch AS export
+COPY --from=go /out/artex /artex
